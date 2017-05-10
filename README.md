@@ -1,2 +1,2 @@
-# oracle-ebs-moniotoring
+# oracle-ebs-monitoring
 Monitor Oracle EBS Instance
