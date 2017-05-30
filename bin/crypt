@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+###############################################################
+#	Created by:     Unknown	
+#	Updated by: 	Habib Rangoonwala
+#	Updated:	16-Mar-2007
+###############################################################
+
+$pass = shift or die "Usage: ", $0 =~ /([^\/]*$)/, " passwd < file\n";
+
+undef $/;                 # Set "slurp mode"
+@file = split //, <>;     # Make a 'character' array from file
+
+# Tweak the password itself to avoid "known text XOR" attack
+@pass = map{
+$x = ord;
+$y = ( $x + 10 ) ** 2 % 256;
+$z = ( $x - 10 ) ** 2 % 256;
+chr ( $y ^ $z )
+} split //, $pass;
+
+# Write to file
+print chr( ord $file[$_] ^ ord $pass[$_ % scalar @pass] ) for 0 .. $#file
+
+

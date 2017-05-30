@@ -1,0 +1,1482 @@
+###############################################################
+#	Author: 	Habib Rangoonwala
+#	Creation Date:	16-Mar-2007
+#	Updation Date:	02-Aug-2007
+#	Updation Date:	18-Feb-2009
+###############################################################
+
+#
+### GetElapsedTime
+### Value	
+#
+
+GetElapsedTime ()
+{
+	hSeconds=`echo "$SECONDS"|cut -d. -f1`
+	echo "$hSeconds"
+	return 0
+}
+
+
+#
+### GetInstance <<param1>>
+### Value	
+#
+
+
+GetInstance ()
+{
+
+	hInstance=$1
+	
+	if [ -z "$hInstance" ]; then
+		hInstance="$ORACLE_SID$TWO_TASK"
+	fi
+	
+	echo "$hInstance"
+	exit 0
+
+}
+
+
+#
+### GetHost <<param1>>
+### Value	
+#
+
+
+GetHost ()
+{
+
+	hHost=$1
+	
+	if [ -z "$hHost" ]; then
+		hHost=`uname -n`
+	fi
+	
+	echo "$hHost"
+	exit 0
+
+}
+
+
+#
+### GetColumnValue 	<<RECORD>> 	<<COLUMN#>> 	<<COLUMNSEPARATOR>>
+### Value		record		nn		default "\t"
+#
+
+GetColumnValue ()
+{
+	
+	hRecord="$1"
+	hColumn="$2"
+	
+	if [ ! -z "$3" ]; then
+		hSeparator="$3"
+	else
+		hSeparator="\t"
+		#hCount=`echo "$hRecord" |awk 'BEGIN {FS="$hSeparator"} {print NF}'`
+		hCount=`printf "$hRecord" |awk 'BEGIN {FS="'"$hSeparator"'"} {print NF}'`
+
+		if [ "$hCount" -eq 1 ]; then
+			hSeparator=" "
+		fi
+	fi
+
+	#hReturn=`echo "$hRecord" |awk 'BEGIN {FS="$hSeparator"} {print $hColumn}'`
+	#hReturn=`echo $hRecord|cut -d " " -f1`
+	hReturn=`printf "$hRecord" |awk 'BEGIN {FS="'"$hSeparator"'"} {print $'$hColumn'}'`
+
+	echo "$hReturn"
+	exit 0
+}
+
+
+
+#
+### ReadINIValue <<Instance>> <<Host>> <<Section>> <<Key>> <<EvaluateBeforeReturningValue>>
+### Value							True/False
+#
+
+
+ReadINIValue ()
+{
+
+	hInstance=$1
+	hHost=$2
+	hSection=$3
+	hKey=$4
+	hEval=$5
+
+	hOutput=`grep "$hInstance.$hHost.$hSection.$hKey=" "$H_CONFIG_FILE"|grep -v ^#`
+	
+	if [ -z "$hOutput" ]; then
+		exit 1
+	else
+	
+		hReturn=`echo "$hOutput"|cut -d= -f2-999`
+
+		if [ -z "$hEval" ]; then
+
+			echo "$hReturn"
+			return 0
+		else
+			echo "`eval 'echo '$hReturn`"
+			return 0
+		fi
+
+		exit 0
+	
+	fi
+
+}
+
+
+#
+### GetScriptParameter <<Section>> <<Key>> <<EvaluateBeforeReturningValue>>
+### Value				          True/False
+#
+
+GetScriptParameter ()
+{
+
+	hInstance=$1
+	hHost=$2
+	hSection=$3
+	hKey=$4
+	hEval=$5
+	hTotalArgs=$#
+
+	hOutput=`grep -v ^# $H_CONFIG_FILE|grep ".$hKey="`
+	hJumpSection=""
+	
+	GetJumpSection()
+	{
+		hJumpSection=`SubString "$hReturn" "1" "3"`
+		
+		if [ "$hJumpSection" = "@@@" ]; then
+			hJumpSection=`SubString "$hReturn" "4"`
+		else
+			hJumpSection=""
+		fi
+		
+		echo "$hJumpSection"
+	
+	}
+
+	hGSP1()
+	{
+	hReturn=`echo "$hOutput" | grep "$hInstance.$hHost.$hSection.$hKey="|cut -d= -f2-999`
+	hCount=`echo "$hOutput" | grep "$hInstance.$hHost.$hSection.$hKey="|cut -d= -f2-999|wc -l`
+	hJumpSection=`GetJumpSection "$hReturn"`
+	
+	#if [ ! -z "$hReturn" ]; then
+	if [ "$hCount" -eq 1 ]; then
+		if [ ! -z "$hJumpSection" ]; then
+			hSection="$hJumpSection"
+			hGSP1
+		fi
+		if [ -z "$hEval" ]; then
+			echo "$hReturn"
+		else
+			echo "`eval 'echo '$hReturn`"
+		fi
+		exit 0
+	fi
+	}
+
+	hGSP2()
+	{
+	hReturn=`echo "$hOutput" | grep "$hInstance.default.$hSection.$hKey="|cut -d= -f2-999`
+	hCount=`echo "$hOutput" | grep "$hInstance.default.$hSection.$hKey="|cut -d= -f2-999|wc -l`
+	hJumpSection=`GetJumpSection "$hReturn"`
+	
+	#if [ ! -z "$hReturn" ]; then
+	if [ "$hCount" -eq 1 ]; then
+		if [ ! -z "$hJumpSection" ]; then
+			hSection="$hJumpSection"
+			hGSP2
+		fi
+		if [ -z "$hEval" ]; then
+			echo "$hReturn"
+		else
+			echo "`eval 'echo '$hReturn`"
+		fi
+		exit 0
+	fi
+	}
+
+	hGSP3()
+	{
+	hReturn=`echo "$hOutput" | grep "default.$hHost.$hSection.$hKey="|cut -d= -f2-999`
+	hCount=`echo "$hOutput" | grep "default.$hHost.$hSection.$hKey="|cut -d= -f2-999|wc -l`
+	hJumpSection=`GetJumpSection "$hReturn"`
+	
+	#if [ ! -z "$hReturn" ]; then
+	if [ "$hCount" -eq 1 ]; then
+		if [ ! -z "$hJumpSection" ]; then
+			hSection="$hJumpSection"
+			hGSP3
+		fi
+		if [ -z "$hEval" ]; then
+			echo "$hReturn"
+		else
+			echo "`eval 'echo '$hReturn`"
+		fi
+		exit 0
+	fi
+	}
+
+	hGSP4()
+	{
+	hReturn=`echo "$hOutput" | grep "$hInstance.default.DefaultSection.$hKey="|cut -d= -f2-999`
+	hCount=`echo "$hOutput" | grep "$hInstance.default.DefaultSection.$hKey="|cut -d= -f2-999|wc -l`
+	#hJumpSection=`GetJumpSection "$hReturn"`
+	hJumpSection=""
+	
+	#if [ ! -z "$hReturn" ]; then
+	if [ "$hCount" -eq 1 ]; then
+		if [ ! -z "$hJumpSection" ]; then
+			hSection="$hJumpSection"
+			hGSP4
+		fi
+		if [ -z "$hEval" ]; then
+			echo "$hReturn"
+		else
+			echo "`eval 'echo '$hReturn`"
+		fi
+		exit 0
+	fi
+	}
+	
+	hGSP5()
+	{	
+	hReturn=`echo "$hOutput" | grep "default.default.$hSection.$hKey="|cut -d= -f2-999`
+	hCount=`echo "$hOutput" | grep "default.default.$hSection.$hKey="|cut -d= -f2-999|wc -l`
+	hJumpSection=`GetJumpSection "$hReturn"`
+	
+	#if [ ! -z "$hReturn" ]; then
+	if [ "$hCount" -eq 1 ]; then
+		if [ ! -z "$hJumpSection" ]; then
+			hSection="$hJumpSection"
+			hGSP5
+		fi
+		if [ -z "$hEval" ]; then
+			echo "$hReturn"
+		else
+			echo "`eval 'echo '$hReturn`"
+		fi
+		exit 0
+	fi
+	}
+
+	hGSP6()
+	{
+	hReturn=`echo "$hOutput" | grep "default.default.DefaultSection.$hKey="|cut -d= -f2-999`
+	hCount=`echo "$hOutput" | grep "default.default.DefaultSection.$hKey="|cut -d= -f2-999|wc -l`
+	#hJumpSection=`GetJumpSection "$hReturn"`
+	hJumpSection=""
+	
+	#if [ ! -z "$hReturn" ]; then
+	if [ "$hCount" -eq 1 ]; then
+		if [ ! -z "$hJumpSection" ]; then
+			hSection="$hJumpSection"
+			hGSP6
+		fi
+		if [ -z "$hEval" ]; then
+			echo "$hReturn"
+		else
+			echo "`eval 'echo '$hReturn`"
+		fi
+		exit 0
+	fi
+	}
+	
+	hGSP1
+	hGSP2
+	hGSP3
+	hGSP4
+	hGSP5
+	hGSP6
+
+	exit 1
+
+}
+
+
+GetScriptParameterOLD ()
+{
+
+
+	hInstance=$1
+	hHost=$2
+	hSection=$3
+	hKey=$4
+	hEval=$5
+	hTotalArgs=$#
+	
+	lValue=`ReadINIValue "$hInstance" "$hHost" "$hSection" "$hKey" "$hEval"`
+	
+	if [ $? -ne 0 ]; then
+	
+		lValue=`ReadINIValue "$hInstance" "$hHost" "DefaultSection" "$hKey" "$hEval"`
+		
+	fi
+	
+	if [ $? -ne 0 ]; then
+	
+		exit 1
+		
+	fi
+	
+	echo "$lValue"
+	
+	exit 0
+
+
+}
+
+
+#
+### IsScriptEnabled
+### Value	
+#
+
+
+IsScriptEnabled ()
+{
+
+	hInstance=$ORACLE_SID$TWO_TASK
+	hHostname=$H_HOSTNAME
+	hScriptName=$H_SCRIPTSECTION
+
+	if [ -f "$hLogDirectory/$hInstance.$hHostname.DISABLED" -o -f "$hLogDirectory/$hInstance.default.DISABLED" -o -f "$hLogDirectory/$hScriptName.$hInstance.default.DISABLED" -o -f "$hLogDirectory/$hScriptName.$hInstance.$hHostname.DISABLED" ]; then
+		hReturn="False"
+	else
+		hReturn=`GetScriptParameter "$hInstance" "$hHostname" "$hScriptName" "IsEnabled"`
+	fi
+
+	if [ -z "$hReturn" -o "$hReturn" = "True" ]; then
+		exit 0
+	else
+		exit 1
+	fi
+
+}
+
+
+#
+### CreateLockFile <<LockFileName>> <<LogFileName>> <<NewLineCharacter>> <<DateFormat>>
+### Value
+#
+CreateLockFile ()
+{
+
+	hLockFile=$1
+	hLogFile=$2
+	hNewLine=$3
+	hDateFormat=$4
+	hPID=$5
+
+	echo "$hPID" > "$hLockFile"
+	`WriteLogFile $hLogFile "Updated Lockfile with PID=$hNewPID $hNewLine" "$hDateFormat"`
+
+}
+
+
+#
+### CheckLockFile <<LockFileName >> <<LogFileName>> <<NewLineCharacter>> <<DateFormat>>
+### Value
+#
+
+
+CheckLockFile ()
+{
+
+	hLockFile="$1"
+	hLogFile="$2"
+	hNewLine="$3"
+	hDateFormat="$4"
+	hScriptName="$H_SCRIPTNAME"
+	hPID=0
+	hNewPID=$$
+	
+	`WriteLogFile $hLogFile "Checking if the script $hScriptName is already running. $hNewLine" "$hDateFormat"`
+	
+	if [ -z "$hLockFile" ]; then
+		`WriteLogFile "$hLogFile" "LockFile name is invalid $hNewLine" "$hDateFormat"`
+		echo "LockFile name is invalid"
+		exit 1
+	fi
+
+	if [ -f "$hLockFile" ]; then
+
+		hPID=`cat "$hLockFile"`
+		
+		if [ ! -z "$hPID" ]; then
+		
+			hOutput=`ps -p "$hPID"|grep "$hPID"`
+
+			if [ ! -z "$hOutput" ]; then
+			
+				hOutput=`ps -ef|grep $hPID|grep -v grep|grep $hScriptName`
+				
+				if [ -z "$hOutput" ]; then
+					`WriteLogFile "$hLogFile" "OLD PID=$hPID is not running but assigned to other process $hNewLine" "$hDateFormat"`
+					`CreateLockFile "$hLockFile" "$hLogFile" "$hNewLine" "$hDateFormat" "$hNewPID"`
+					exit 0
+				else
+					`WriteLogFile "$hLogFile" "OLD PID=$hPID is still running $hNewLine" "$hDateFormat"`
+					`WriteLogFile "$hLogFile" "$hOutput is still running $hNewLine" "$hDateFormat"`
+					echo "OLD PID=$hPID is still running, please verify $hNewLine $hOutput"
+					exit 1
+				fi
+			
+			else
+
+				`WriteLogFile "$hLogFile" "OLD PID=$hPID is not running $hNewLine" "$hDateFormat"`
+				`CreateLockFile "$hLockFile" "$hLogFile" "$hNewLine" "$hDateFormat" "$hNewPID"`
+				exit 0
+			fi
+			
+		else
+			`WriteLogFile "$hLogFile" "LockFile is ZERO Byte $hNewLine" "$hDateFormat"`
+			`CreateLockFile "$hLockFile" "$hLogFile" "$hNewLine" "$hDateFormat" "$hNewPID"`
+			exit 0
+		fi
+		
+	else
+		`WriteLogFile "$hLogFile" "Creating LockFile $hNewLine" "$hDateFormat"`
+		`CreateLockFile "$hLockFile" "$hLogFile" "$hNewLine" "$hDateFormat" "$hNewPID"`
+		exit 0
+	fi
+
+}
+
+
+#
+### WriteLogFile <<LogFileName>> <<MessageToWrite>> <<TimeStampFormat>>
+### Value
+#
+
+
+WriteLogFile()
+{
+
+	hLogFileName=$1
+	hMessage=$2
+	hDateFormat=$3
+	hLogFileName2=$hRunLogFile
+	
+	if [ -z "$hDateFormat" ]; then
+		echo "$hMessage"|while read LINE;
+		do
+			echo "$LINE" >> $hLogFileName
+			
+			if [ ! -z "$hLogFileName2" ]; then
+				echo "$LINE" >> $hLogFileName2
+			fi
+		done
+	else
+		hDate=`GetDate $hDateFormat`
+		echo "$hMessage"|while read LINE;
+		do
+			echo "$hDate \t $LINE" >> $hLogFileName
+			if [ ! -z "$hLogFileName2" ]; then
+				echo "$hDate \t $LINE" >> $hLogFileName2
+			fi
+		done
+	fi
+	
+	exit 0
+
+}
+
+
+#
+### GetDate <<DateFormat>>
+### Value
+#
+	
+GetDate()
+{
+	echo `date +"$*"`
+	exit 0
+}
+
+
+#
+### Repeat <<String>> <<Num>>
+### Value
+#
+
+Repeat()
+{
+	hString=$1
+	hTimes=$2
+	hCount=0
+	hReturn="$hString"
+	
+	while [ $hCount -le $hTimes ]
+	do
+		hReturn="$hReturn$hString"
+		hCount=`expr $hCount + 1`
+	done
+	echo "$hReturn"
+}
+
+#
+### WriteEMailHeader <<TemporaryFileName>> <<FromAlias>> <<ToAddress>> <<Subject>>
+### Value
+#
+
+WriteEMailHeader()
+{
+
+	hTemporaryFile=$1
+	hFrom=$2
+	hTo=$3
+	hSubject=$4
+	
+	hTo=`ReplaceString "$hTo" " " ";"`
+
+	# truncate Temporary File
+	> $hTemporaryFile
+	
+	echo "From: $hFrom"			>> $hTemporaryFile
+	echo "To: $hTo"				>> $hTemporaryFile
+	echo "Subject: $hSubject"		>> $hTemporaryFile
+	echo "MIME-Version: 1.0"		>> $hTemporaryFile
+	echo "Content-Type: text/html"		>> $hTemporaryFile
+	echo "Content-Disposition: inline"	>> $hTemporaryFile
+
+	exit 0
+
+}
+
+#
+### BeginHTML <<TemporaryFileName>> <<Title>>
+### Value
+#
+
+BeginHTML()
+{
+
+	hTemporaryFile=$1
+	hTitle=$2
+
+	echo '<HTML>'					>> $hTemporaryFile
+	echo '<HEAD><TITLE>'"$hTitle"'</TITLE> </HEAD>'	>> $hTemporaryFile
+	echo '<BODY>' 					>> $hTemporaryFile
+
+}
+
+#
+### EndHTML <<TemporaryFileName>>
+### Value
+#
+
+EndHTML()
+{
+
+	hTemporaryFile=$1
+
+	echo '</BODY>' 					>> $hTemporaryFile
+	echo '</HTML>'					>> $hTemporaryFile
+
+}
+
+
+
+
+#
+### BeginHTMLHeader <<TemporaryFileName>> <<Title>>
+### Value
+#
+
+BeginHTMLHeader()
+{
+
+	hTemporaryFile=$1
+	hTitle=$2
+	if [ -z "$3" ]; then
+		hColumns=1
+	else
+		hColumns=$3
+	fi
+
+	echo '<TABLE  border=1 width=100% cellspacing=0 cellpadding=0>'			>> $hTemporaryFile
+	echo '<TR>'									>> $hTemporaryFile
+	echo '<B><TH colspan='$hColumns ' align=center bgcolor=blue color=white> '	>> $hTemporaryFile
+	echo '<FONT face=Arial size=3 color=white> '					>> $hTemporaryFile
+	echo "$hTitle"									>> $hTemporaryFile
+	echo '</FONT> </TH> </B> <TR>'							>> $hTemporaryFile
+
+}
+
+
+#
+### EndHTMLHeader <<TemporaryFileName>>
+### Value
+#
+
+EndHTMLHeader()
+{
+
+	hTemporaryFile=$1
+
+	echo '</TABLE>'	>> $hTemporaryFile
+
+}
+
+
+
+#
+### WriteHTMLLine <<TemporaryFileName>> <<Text>>
+### Value
+#
+
+WriteHTMLLine()
+{
+
+	hTemporaryFile=$1
+	hLine=$2
+
+	echo '<TR><TD align=center> '				>> $hTemporaryFile
+	echo '<FONT face="Arial" size="2" color="red"> '	>> $hTemporaryFile
+	echo "$hLine"						>> $hTemporaryFile
+	echo '</FONT></TD></TR>'				>> $hTemporaryFile
+}
+
+
+#
+### SendHTMLEmail <<TemporaryFileName>> <<To>>
+### Value
+#
+
+SendHTMLEmail()
+{
+
+	hTemporaryFile=$1
+	hTo=$2
+
+	(cat $hTemporaryFile) | sendmail "$hTo"
+	if [ $? -eq 0 ]; then
+		rm $hTemporaryFile
+		exit 0
+	else
+		exit 1
+	fi
+
+}
+
+#
+### SendTextEmail <<TemporaryFileName>> <<From>> <<To>> <<subject>>
+### Value
+#
+
+SendTextEmail()
+{
+
+	hTemporaryFile=$1.2
+	hTemporaryFile2=$1
+	hFrom=$2
+	hTo=$3
+	hSubject=$4
+
+	hTo=`ReplaceString "$hTo" " " ";"`
+
+	# truncate Temporary File
+	> $hTemporaryFile
+	
+	echo "From: $hFrom"			>> $hTemporaryFile
+	echo "To: $hTo"				>> $hTemporaryFile
+	echo "Subject: $hSubject"		>> $hTemporaryFile
+	echo "MIME-Version: 1.0"		>> $hTemporaryFile
+	echo "Content-Type: text/text"		>> $hTemporaryFile
+	echo "Content-Disposition: inline"	>> $hTemporaryFile
+	
+	hTo=$3
+	
+	cat $hTemporaryFile2 >> $hTemporaryFile
+
+	(cat $hTemporaryFile) | sendmail "$hTo"
+	if [ $? -eq 0 ]; then
+		rm $hTemporaryFile
+		rm $hTemporaryFile2
+		exit 0
+	else
+		exit 1
+	fi
+
+}
+
+
+#
+### SendSingleLineEmail <<TemporaryFileName>> <<From>> <<TO>> <<MailSubject>> <<Title>> <<ErrorMessage>>
+### Value
+#
+
+SendSingleLineEmail()
+{
+
+	hTemporaryFile=$1
+	hFrom=$2
+	hTo=$3
+	hMailSubject=$4
+	hTitle=$5
+	hErrorMessage=$6
+	hErrorMessage2=$7
+	
+	hTo=`ReplaceString "$hTo" " " ";"`
+	
+	`WriteEMailHeader $hTemporaryFile "$hFromAlias" "$hTo" "$hMailSubject"`
+
+	`BeginHTML $hTemporaryFile $hMailSubject`
+	`BeginHTMLHeader $hTemporaryFile "$hTitle"`
+
+	`WriteHTMLLine $hTemporaryFile "$hErrorMessage"`
+	
+	if [ ! -z "$hErrorMessage2" ]; then
+		`WriteHTMLLine $hTemporaryFile "$hErrorMessage2"`
+	fi
+
+	`EndHTMLHeader $hTemporaryFile`
+	`EndHTML $hTemporaryFile`
+	hTo=$3
+	`SendHTMLEmail $hTemporaryFile "$hTo"`
+
+}
+
+
+#
+### SendMultiLineEmail <<TemporaryFileName>> <<From>> <<TO>> <<MailSubject>> <<Title>> <<FieldCount>> <<Align>>
+### Value
+#
+
+SendMultiLineEmail()
+{
+
+	hTemporaryFile=$1
+	hTemporaryFile2=$1.2
+	hFrom=$2
+	hTo=$3
+	hMailSubject=$4
+	hTitle=$5
+
+	if [ -z "$6" ]; then
+		hFieldCount=1
+		hAlign="left"
+	else
+		hFieldCount=$6
+		hAlign="center"
+	fi
+	hSrNo=1
+	
+	cp "$hTemporaryFile" "$hTemporaryFile2"
+	
+	`WriteEMailHeader $hTemporaryFile "$hFromAlias" "$hTo" "$hMailSubject"`
+
+	`BeginHTML $hTemporaryFile $hMailSubject`
+	
+	hTableCount=`grep "___TABLE___" $hTemporaryFile2 | wc -l`
+	hTableCount=`expr $hTableCount + 1`
+	
+	`BeginHTMLHeader $hTemporaryFile "$hTitle" $hFieldCount`
+
+
+	# format the details
+
+	cat $hTemporaryFile2|while read LINE;
+	do
+	
+		### if its ZERO length string, continue
+		if [ -z "$LINE" ]; then
+			continue
+		fi
+		
+		hString=`echo "$LINE" |grep "___TABLE___"`
+		if [ ! -z "$hString" ]; then
+
+			hSrNo=1
+
+			echo '</TR>'					>> $hTemporaryFile
+			`EndHTMLHeader $hTemporaryFile`
+			
+			hFieldCount=`GetColumnValue "$hString" "2"`
+			hTitle=`GetColumnValue "$hString" "3"`
+			
+			`BeginHTMLHeader $hTemporaryFile "$hTitle" $hFieldCount`
+			continue
+		fi
+
+		hRem=`expr $hSrNo % 2`
+		
+		i=1
+		
+		echo '<TR> '								>> $hTemporaryFile
+		
+		while [ $i -le $hFieldCount ];
+		do
+		
+			# if its only single column, print the entire line
+			if [ $hFieldCount -eq 1 ]; then
+				hField=$LINE
+			else
+				hField=`echo "$LINE"|cut -f$i`
+			fi
+			
+			if [ "$hField" = "___SKIPLINE___" ]; then
+				break;
+			fi
+			
+			if [ "$hSrNo" -eq 1 ]; then
+				echo '<TD align='$hAlign' bgcolor="gray"> '			>> $hTemporaryFile
+			else
+				if [ $hRem -eq 0 ]; then
+					echo '<TD align='$hAlign' bgcolor="f7f7e7"> '		>> $hTemporaryFile
+				else
+					echo '<TD align='$hAlign' bgcolor="f7f7d2"> '		>> $hTemporaryFile
+				fi
+			fi
+
+			if [ "$hSrNo" -eq 1 ]; then
+
+				echo '<FONT face="Arial" size="2" > '				>> $hTemporaryFile
+				echo "<TEXT>$hField</TEXT>"|sed 's/___NEWLINE___/<BR>/g'			>> $hTemporaryFile
+				echo '</FONT></TD>'						>> $hTemporaryFile
+			
+			else
+				
+				echo '<FONT face="Arial" size="1" > '				>> $hTemporaryFile
+				echo "<TEXT>$hField</TEXT>"|sed 's/___NEWLINE___/<BR>/g'			>> $hTemporaryFile
+				echo '</FONT></TD>'						>> $hTemporaryFile
+				
+			fi
+
+			i=`expr $i + 1`
+
+		done
+		
+		echo '</TR>'					>> $hTemporaryFile
+
+
+
+		hSrNo=`expr $hSrNo + 1`
+
+	done
+
+	rm $hTemporaryFile2
+
+	`EndHTMLHeader $hTemporaryFile`
+	`EndHTML $hTemporaryFile`
+	hTo=$3
+	`SendHTMLEmail $hTemporaryFile "$hTo"`
+	
+
+}
+
+
+
+
+#    OLD READINIVALUE - this is not in use, because of performance issues
+### ReadINIValue <<Section>> <<Key>> <<EvaluateBeforeReturningValue>>
+### Value				True/False
+#
+
+
+ReadINIValueOld ()
+{
+
+	hSection=$1
+	hKey=$2
+	hEval=$3
+	hTotalArgs=$#
+	hFound="False"
+	hLineCount=`cat $H_CONFIG_FILE|wc -l`
+	hLines=0
+	
+	cat $H_CONFIG_FILE|while read LINE;
+	do
+	
+		### if its ZERO length string, continue
+		if [ -z "$LINE" ]; then
+			continue
+		fi
+		
+		## write logic for commented line --- starting with #
+		##############################
+	
+		if [ "$LINE" = "[$hSection]" -a $hFound = "False" ]; then
+		
+			hFound="True"
+			hLines=`expr $hLines + 1`; export hLines
+			continue
+		
+		fi
+		
+		if [ $hFound = "True" ]; then
+		
+			lKey=`echo $LINE|cut -d= -f1`
+		
+			if [ "$lKey" = "$hKey" ]; then
+			
+				# capture everything after first "= sign", 
+				# this is to ensure that if the value of key having
+				# "= Sign is passed as it is, example SQL1 in config.ini
+				
+				lReturn=`echo $LINE|cut -d= -f2-999`
+				hFound="Completed"
+				
+				if [ $hTotalArgs -lt 3 ]; then
+
+					echo "$lReturn"
+					return 0
+					break
+				fi
+				
+				echo "`eval 'echo '$lReturn`"
+					return 0
+				break
+			
+			fi
+		
+		fi
+		
+		hLines=`expr $hLines + 1`
+
+		if [ $hLines -eq $hLineCount ]; then
+			return 1
+		fi
+		
+	done
+	
+	#if [ "$hCompleted" = "Completed" ]; then
+	#	exit 0
+	#else
+	#	exit 1
+	#fi
+
+}
+
+#
+### GetSQLCredentials <<CryptKey>> <<SYSDBA>> <<Credentials>>
+### Value
+#
+
+GetSQLCredentials()
+{
+
+	hCryptKey=$1
+	hSYSDBA=$2
+	hCredentials=$3
+
+
+	# decode userid/password
+
+	if [ ! -z "$hCryptKey" ]; then
+
+		# if crypt key is not ZERO Length, Credentials has to be a crypt file
+
+		if [ ! -f "$hCredentials" ]; then
+
+			echo "Credentials File [$hCredentials] NOT FOUND"
+			exit 1
+
+		else
+
+			hCredentials=`crypt "$hCryptKey" < "$hCredentials"`
+
+		fi
+
+	else
+
+		if [ -z "$hCryptKey" -a -f "$hCredentials" ]; then
+			hCredentials=`cat "$hCredentials"`
+		fi
+
+		if [ ! -z "$hSYSDBA" -o "$hSYSDBA" = "True" ]; then
+			hCredentials="/as sysdba"
+		fi
+
+		
+	fi
+
+	echo "$hCredentials"
+	exit 0
+
+}
+
+
+#
+### GetUserID <<Credentials>>
+### Value
+#
+
+GetUserID()
+{
+
+	hCredentials=$1
+
+
+	# decode userid/password
+
+	if [ ! -z "$hCredentials" ]; then
+
+	
+		hUserID=`echo "$hCredentials"|cut -d "/" -f1`
+		echo "$hUserID"
+		exit 0
+
+	else
+
+		echo ""
+		exit 1
+
+	fi
+
+}
+
+
+#
+### GetPassword <<Credentials>>
+### Value
+#
+
+GetPassword()
+{
+
+	hCredentials=$1
+
+
+	# decode userid/password
+
+	if [ ! -z "$hCredentials" ]; then
+
+		hPassword=`echo "$hCredentials"|cut -d "/" -f2`
+		echo "$hPassword"
+		exit 0
+
+	else
+
+		echo ""
+		exit 1
+	
+	fi
+
+}
+
+#
+### GetLength <<String>>
+### Value
+#
+
+GetLength()
+{
+	
+	hString=$1
+	
+	hLength=`expr "$hString" : '.*'`
+	echo "$hLength"
+	
+	exit 0
+	
+}
+
+#
+### SubString <<String>> <<Position>> <<Length>>
+### Value
+#
+
+SubString()
+{
+
+	hString=$1
+	hPos=$2
+	hLength=$3
+	
+	if [ -z "$hLength" ]; then
+		hLength=`GetLength "$hString"`
+	fi
+	
+	#hReturn=`echo|nawk '{ print substr("'"${hString}"'",${hPos},${hLength}) }'`
+	hReturn=`echo|nawk '{ print substr("'"${hString}"'","'"${hPos}"'","'"${hLength}"'") }'`
+	echo "$hReturn"
+
+	exit 0
+	
+}
+
+
+#
+### ReplaceString <<SourceString>> <<String1>> <<String2>>
+### Value
+#
+
+ReplaceString()
+{
+	
+	hSourceString=$1
+	hString1=$2
+	hString2=$3
+
+	#hReturn=`echo "$hSourceString"|sed -e "s/$hString1/$hString2/g"`
+	hReturn=`echo "$hSourceString"|tr "$hString1" "$hString2"`
+	
+	echo "$hReturn"
+	
+	exit 0
+	
+}
+
+
+
+#
+### RunSQLCommand <<Credentials>> <<SQLCommand>> <<SQLPlusExecutable>> <<TemporaryFile>> <<Arg1>>
+### Value
+#
+
+RunSQLCommand()
+{
+
+	hCredentials=$1
+	hSQL=$2
+	hSQLPlusExecutable=$3
+	hTemporaryFile=$4
+
+	hUserID=`GetUserID "$hCredentials"`
+	hPassword=`GetPassword "$hCredentials"`
+	hSQLPlusOutput=""
+	
+	`WriteLogFile $hScriptLogFile "Running SQL*Plus $hNewLine" "$hDateFormat"`
+
+	echo "set head off" > $hTemporaryFile
+	echo "set feed off" >> $hTemporaryFile
+	echo "set pages 0" >> $hTemporaryFile
+	echo "set lines 30000" >> $hTemporaryFile 
+	echo "set trimspool on" >> $hTemporaryFile
+	if [ ! -z "$hSQLPlusOutFile" ]; then
+		echo "spool $hSQLPlusOutFile" >> $hTemporaryFile
+	fi
+	
+	#if [ "$hSQLFieldSeparator" = "TAB" ]; then
+
+	#	echo "col TAB# new_value TAB NOPRINT" >> $hTemporaryFile
+	#	echo "select chr(9) TAB# from dual;" >> $hTemporaryFile
+	#	echo "set colsep "&TAB"" >> $hTemporaryFile
+		
+	#fi
+	
+	if [ -f "$hSQL" ]; then
+
+		`WriteLogFile $hScriptLogFile "SQL is a file [$hSQL] $hNewLine" "$hDateFormat"`
+		# Arguments are only valid for SQL File
+		hArg1=$5
+		cat "$hSQL" >> $hTemporaryFile
+	
+	else
+		`WriteLogFile $hScriptLogFile "SQL: $hNewLine ==== $hNewLine $hSQL $hNewLine" "$hDateFormat"`
+		echo "$hSQL ;" >> $hTemporaryFile
+
+	fi
+
+	echo "exit" >> $hTemporaryFile
+
+	#run SQLPlus
+
+	hUserID=`echo "$hCredentials"|cut -d "/" -f1`
+	hPassword=`echo "$hCredentials"|cut -d "/" -f2`
+
+	if [ -z "$hUserID" ]; then
+		hSQLPlusOutput=`echo "$hPassword"|$hSQLPlusExecutable "/as sysdba" @$hTemporaryFile "$hArg1"`
+	else
+		hSQLPlusOutput=`echo "$hPassword"|$hSQLPlusExecutable "$hUserID" @$hTemporaryFile "$hArg1"`
+	fi
+
+	hSQLPlusOutput=`echo "$hSQLPlusOutput"|grep -v "Enter password:"`
+	rm "$hTemporaryFile"
+
+	hErrorMessage=`echo "$hSQLPlusOutput"|grep ORA-|grep -v ORA-00271`
+
+	if [ ! -z "$hErrorMessage" ]; then
+
+		`WriteLogFile $hScriptLogFile "SQL*Plus Failed with ERROR $hNewLine [$hErrorMessage] $hNewLine" "$hDateFormat"`
+		echo "$hErrorMessage"
+		exit 1
+
+	else
+
+		`WriteLogFile $hScriptLogFile "SQL*Plus Output: $hNewLine ================ $hNewLine $hSQLPlusOutput $hNewLine" "$hDateFormat"`	
+		`WriteLogFile $hScriptLogFile "SQL*Plus completed SUCCESSFULLY $hNewLine" "$hDateFormat"`
+		echo "$hSQLPlusOutput"
+		exit 0
+		
+		
+	fi
+
+}
+
+#
+### RunFilerCommand <<CommandTYPE>> <<COMMAND>> 
+### Value
+#
+
+RunFilerCommand()
+{
+
+	hCommandType=$1
+	hCommand=`eval 'print '$2`
+	hCount=0
+	hReturn=""
+
+	if [ "$hCommandType" = "LIST" ]; then
+		hCommand="$hCommand | grep $SNAPSHOT"
+	fi
+	
+	while [ $hCount -lt $hRetryAttempt ];
+	do
+
+		hCount=`expr $hCount + 1`
+		
+		`WriteLogFile $hScriptLogFile "[Attempt $hCount of $hRetryAttempt] = Running Filer Command [$hCommand] $hNewLine" "$hDateFormat"`
+		
+		print "$hCommand" > "$hTemporaryFile.sh"
+		chmod 755 "$hTemporaryFile.sh"
+
+		#$hCommand > $hTemporaryFile.flr 2>&1
+		$hTemporaryFile.sh > $hTemporaryFile.flr 2>&1
+
+		hReturn=`cat $hTemporaryFile.flr`
+		rm "$hTemporaryFile.flr"
+		rm "$hTemporaryFile.sh"
+		
+		if [ "$hCommandType" = "DELETE" ]; then
+
+			if [ "$hReturn" = 'deleting snapshot...' ]; then
+				echo "$hReturn DELETED"
+				exit 0
+			elif  [ "$hReturn" = 'No such snapshot.' ]; then
+				echo "$hReturn  - NOT FOUND"
+				exit 0
+			fi
+
+		elif [ "$hCommandType" = "CREATE" ]; then
+
+			if [ "$hReturn" = 'creating snapshot...' ]; then
+				echo "$hReturn - CREATED"
+				exit 0
+			elif  [ "$hReturn" = 'Snapshot already exists.' ]; then
+				echo "$hReturn - ALREADY EXISTS"
+				exit 0
+			fi
+
+		elif [ "$hCommandType" = "RENAME" ]; then
+
+			if [ "$hReturn" = '' ]; then
+				echo "$hReturn - RENAMED"
+				exit 0
+			elif  [ "$hReturn" = 'No such snapshot.' ]; then
+				echo "$hReturn - NOT FOUND"
+				exit 0
+			fi
+		elif [ "$hCommandType" = "LIST" ]; then
+
+			if [ ! -z "$hReturn" ]; then
+				echo "$hReturn"
+			else
+				echo "$hReturn - NOT FOUND"
+			fi
+			exit 0
+
+		fi
+		
+		`WriteLogFile $hScriptLogFile "Command failed with error: $hNewLine $hReturn ... $hNewLine Retrying in $hRetryDelayInSeconds seconds $hNewLine" "$hDateFormat"`
+		
+		sleep $hRetryDelayInSeconds
+	
+	done
+
+	echo "$hCommand$hNewLine$hReturn"
+	exit 1
+	
+}
+
+
+
+#
+### TakeSnap <<FILER>> <<VOLUME>> <<COMMAND>>				<<SNAPSHOT1>>  <<SNAPSHOT2>>
+### Value							CREATE/DELETE/RENAME	snapname1			snapname2
+#
+
+TakeSnap()
+{
+	
+	FILER=$1
+	VOLUME=$2
+	hCommand="$3"
+	hSnapshot1="$4"
+	hSnapshot2="$5"
+	
+	# DELETE SNAPSHOT
+	if [ ! -z "$hSnapshot1" ]; then
+		SNAPSHOT=$hSnapshot1
+	else
+		SNAPSHOT=$hNamePattern.$hSnapshotKeepDays
+	fi
+
+	if [ -z "$hCommand" -o "$hCommand" = "DELETE" ]; then
+		
+		hReturn=`RunFilerCommand "DELETE" "$hDeleteSnapshotCommand"`
+		
+		if [ $? -eq 0 ]; then
+			`WriteLogFile $hScriptLogFile "DELETE Filer Command COMPLETED [$hReturn] $hNewLine" "$hDateFormat"`
+			echo "$hReturn"
+		else
+			`WriteLogFile $hScriptLogFile "DELETE Filer Command FAILED [$hReturn] $hNewLine" "$hDateFormat"`
+			echo "$hReturn"
+			exit 1
+		fi
+	
+	fi
+	
+	# RENAME SNAPSHOT
+	hCount=$hSnapshotKeepDays
+	if [ -z "$hCommand" -o "$hCommand" = "RENAME" ]; then
+
+		while [ $hCount -gt 0 ];
+		do
+
+			if [ "$hSnapshot1" = "" -a "$hSnapshot2" = "" ]; then
+				hCount=`expr $hCount - 1`
+				FROM_SNAPSHOT=$hNamePattern.$hCount
+				TO_SNAPSHOT=$hNamePattern.`expr $hCount + 1`
+			else
+				FROM_SNAPSHOT=$hSnapshot1
+				TO_SNAPSHOT=$hSnapshot2
+				# if from/to name is passed exit the loop after running one iteration
+				hCount=0
+			fi
+
+			hReturn=`RunFilerCommand "RENAME" "$hRenameSnapshotCommand"`
+			if [ $? -eq 0 ]; then
+				`WriteLogFile $hScriptLogFile "RENAME Filer Command COMPLETED [$hReturn] $hNewLine" "$hDateFormat"`
+				echo "$hReturn"
+			else
+				`WriteLogFile $hScriptLogFile "RENAME Filer Command FAILED [$hReturn] $hNewLine" "$hDateFormat"`
+				echo "$hReturn"
+				exit 1
+			fi
+
+		done
+		
+	fi
+
+	# CREATE SNAPSHOT
+	if [ ! -z "$hSnapshot1" ]; then
+		SNAPSHOT=$hSnapshot1
+	else
+		SNAPSHOT=$hNamePattern.0
+	fi
+	
+	if [ -z "$hCommand" -o "$hCommand" = "CREATE" ]; then
+
+		hReturn=`RunFilerCommand "CREATE" "$hCreateSnapshotCommand"`
+		if [ $? -eq 0 ]; then
+			`WriteLogFile $hScriptLogFile "CREATE Filer Command COMPLETED [$hReturn] $hNewLine" "$hDateFormat"`
+			echo "$hReturn"
+		else
+			`WriteLogFile $hScriptLogFile "CREATE Filer Command FAILED [$hReturn] $hNewLine" "$hDateFormat"`
+			echo "$hReturn"
+			exit 1
+		fi
+		
+	fi
+
+	# LIST SNAPSHOT
+	if [ ! -z "$hSnapshot1" ]; then
+		SNAPSHOT=$hSnapshot1
+	else
+		SNAPSHOT=$hNamePattern.0
+	fi
+	
+	if [ "$hCommand" = "LIST" ]; then
+
+		hReturn=`RunFilerCommand "LIST" "$hListSnapshotCommand"`
+		if [ $? -eq 0 ]; then
+			`WriteLogFile $hScriptLogFile "LIST Filer Command COMPLETED [$hReturn] $hNewLine" "$hDateFormat"`
+			echo "$hReturn"
+		else
+			`WriteLogFile $hScriptLogFile "LIST Filer Command FAILED [$hReturn] $hNewLine" "$hDateFormat"`
+			echo "$hReturn"
+			exit 1
+		fi
+		
+	fi
+	
+	exit 0
+
+}
+
+
+#
+### WriteHistoryRecord <<record to be written separated by TAB>>
+### Value	
+#
+
+WriteHistoryRecord ()
+{
+
+	hDate=`GetDate $hDateFormat`
+	
+	if [ ! -z "$hHistoryFile" ]; then
+
+		echo "$hDate\t$*" >> $hHistoryFile
+	
+		if [ $? -eq 0 ]; then
+			`WriteLogFile $hScriptLogFile "History Record Written $hNewLine" "$hDateFormat"`
+			exit 0
+		else
+			`WriteLogFile $hScriptLogFile "History Record NOT Written $hNewLine" "$hDateFormat"`
+			exit 1
+		fi
+		
+	fi
+
+	exit 0
+	
+}
+
+#
+### ToUpper
+### Value	
+#
+
+ToUpper ()
+{
+	echo $1 | tr '[a-z]' '[A-Z]'
+	return 0
+}
+
+#
+### ToUpper
+### Value	
+#
+
+ToLower ()
+{
+	echo $1 | tr '[A-Z]' '[a-z]'
+	return 0
+}
+
+
+#
+### MyEval
+### Value	
+#
+
+MyEval()
+{
+	echo "`eval 'echo '$1`"
+	return 0
+}
+

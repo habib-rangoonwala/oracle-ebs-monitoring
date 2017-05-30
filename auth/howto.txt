@@ -1,0 +1,15 @@
+# how to encrypt the password
+# ensure cryptkey is updated in default.config.ini or instance specific config.ini 
+
+# USAGE
+./crypt [cryptkey] < [plaintextpassword.txt] > [output.filename]
+
+# Encrypt Example 1
+./crypt supersecret < plaintextpassword.txt > SYSTEM.credential
+
+
+# Decrypt Example 1
+./crypt supersecret < SYSTEM.credential
+
+
+# WARNING: this is very basic way of encrypting the file, you should use standard encryption method or use password vaults
